@@ -1,9 +1,12 @@
+#pragma once
+
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
 #include <stdexcept>
 #include <type_traits>
 
+namespace linalg {
 template <typename T> class Matrix {
   struct Row; // proxy for accessors
 
@@ -30,6 +33,23 @@ public: // modifiers
 
 public: // properties
   bool is_squared() const { return ncols == nrows; }
+  std::size_t size() const { return ncols * nrows; }
+  std::pair<std::size_t, std::size_t> shape() const { return {nrows, ncols}; }
+
+public: // non-const operations
+  Matrix<T> &operator+=(const Matrix<T> &);
+  Matrix<T> &operator-=(const Matrix<T> &);
+  Matrix<T> &operator*=(const Matrix<T> &);
+
+public: // const operations
+  Matrix<T> operator+(const Matrix<T> &) const;
+  Matrix<T> operator-(const Matrix<T> &) const;
+  Matrix<T> operator*(const Matrix<T> &) const;
+  T trace() const;
+  T det() const;
+
+private: // implementation details
+  void resize(std::size_t, std::size_t);
 
 private: // fields and proxy
   std::size_t nrows = 0, ncols = 0;
@@ -48,31 +68,37 @@ private: // fields and proxy
   };
 };
 
+} // namespace linalg
+
 // internal constructors & destructor
-template <typename T> Matrix<T>::~Matrix() { delete[] data; }
+template <typename T> linalg::Matrix<T>::~Matrix() { delete[] data; }
 
 template <typename T>
-Matrix<T>::Matrix(std::size_t nrows, std::size_t ncols)
+linalg::Matrix<T>::Matrix(std::size_t nrows, std::size_t ncols)
     : nrows(nrows), ncols(ncols), data(new T[ncols * nrows]{}) {}
 
 template <typename T>
-Matrix<T>::Matrix(const Matrix<T> &other) : Matrix(other.nrows, other.ncols) {
+linalg::Matrix<T>::Matrix(const Matrix<T> &other)
+    : Matrix(other.nrows, other.ncols) {
   std::copy(other.begin(), other.end(), data);
 }
 
 // static factory methods
 template <typename T>
-Matrix<T> Matrix<T>::zero(std::size_t nrows, std::size_t ncols) {
+linalg::Matrix<T> linalg::Matrix<T>::zero(std::size_t nrows,
+                                          std::size_t ncols) {
   static_assert(std::is_arithmetic<T>::value,
                 "Zero() can be used only with arithmetical types");
   return Matrix<T>{nrows, ncols};
 }
 
-template <typename T> Matrix<T> Matrix<T>::zero_like(const Matrix<T> &source) {
+template <typename T>
+linalg::Matrix<T> linalg::Matrix<T>::zero_like(const Matrix<T> &source) {
   return Matrix<T>::zero(source.nrows, source.ncols);
 }
 
-template <typename T> Matrix<T> Matrix<T>::identity(std::size_t n) {
+template <typename T>
+linalg::Matrix<T> linalg::Matrix<T>::identity(std::size_t n) {
   static_assert(std::is_arithmetic<T>::value,
                 "Identity() can be used only with arithmetical types");
 
@@ -84,7 +110,7 @@ template <typename T> Matrix<T> Matrix<T>::identity(std::size_t n) {
 }
 
 template <typename T>
-Matrix<T> Matrix<T>::identity_like(const Matrix<T> &prototype) {
+linalg::Matrix<T> linalg::Matrix<T>::identity_like(const Matrix<T> &prototype) {
   if (!prototype.is_squared())
     throw std::invalid_argument("prototype matrix must be squared!\n");
 
@@ -94,7 +120,7 @@ Matrix<T> Matrix<T>::identity_like(const Matrix<T> &prototype) {
 // selectors and modifiers
 
 template <typename T>
-typename Matrix<T>::Row Matrix<T>::operator[](std::size_t row) {
+typename linalg::Matrix<T>::Row linalg::Matrix<T>::operator[](std::size_t row) {
   if (row >= this->nrows)
     throw std::out_of_range(
         "Row index is out of range: " + std::to_string(row) + "\n");
@@ -103,7 +129,8 @@ typename Matrix<T>::Row Matrix<T>::operator[](std::size_t row) {
 }
 
 template <typename T>
-const typename Matrix<T>::Row Matrix<T>::operator[](std::size_t row) const {
+const typename linalg::Matrix<T>::Row
+linalg::Matrix<T>::operator[](std::size_t row) const {
   if (row >= this->nrows)
     throw std::out_of_range(
         "Row index is out of range: " + std::to_string(row) + "\n");
@@ -112,10 +139,10 @@ const typename Matrix<T>::Row Matrix<T>::operator[](std::size_t row) const {
 }
 
 template <typename T>
-Matrix<T>::Row::Row(T *row_data, std::size_t ncols)
+linalg::Matrix<T>::Row::Row(T *row_data, std::size_t ncols)
     : row_data(row_data), ncols(ncols) {}
 
-template <typename T> T &Matrix<T>::Row::operator[](std::size_t col) {
+template <typename T> T &linalg::Matrix<T>::Row::operator[](std::size_t col) {
   if (col >= ncols)
     throw std::out_of_range(
         "Column index is out of range: " + std::to_string(col) + "\n");
@@ -124,7 +151,7 @@ template <typename T> T &Matrix<T>::Row::operator[](std::size_t col) {
 }
 
 template <typename T>
-const T &Matrix<T>::Row::operator[](std::size_t col) const {
+const T &linalg::Matrix<T>::Row::operator[](std::size_t col) const {
   if (col >= ncols)
     throw std::out_of_range(
         "Column index is out of range: " + std::to_string(col) + "\n");
