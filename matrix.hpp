@@ -1,25 +1,29 @@
 #pragma once
 
+#include "utilities.hpp"
 #include <algorithm>
 #include <cctype>
 #include <cstdlib>
 #include <stdexcept>
+#include <string>
 #include <type_traits>
 
+// Declaration
 namespace linalg {
 template <typename T> class Matrix {
   struct Row; // proxy for accessors
 
 public: // raw constructors and destructor
   ~Matrix();
-  Matrix(std::size_t, std::size_t);
-  Matrix(const Matrix<T> &);
+  Matrix(std::size_t, std::size_t); // create matrix with fixed shape
+  Matrix(const Matrix<T> &);        // copy constructor
 
 public: // static factory methods
   static Matrix<T> zero(std::size_t, std::size_t);
-  static Matrix<T> zero_like(const Matrix<T> &);
+  static Matrix<T> zeros_like(const Matrix<T> &);
   static Matrix<T> identity(std::size_t);
   static Matrix<T> identity_like(const Matrix<T> &);
+  static Matrix<T> transposed(const Matrix<T> &);
 
 public: // selectors
   const T *begin() const { return data; }
@@ -34,7 +38,13 @@ public: // modifiers
 public: // properties
   bool is_squared() const { return ncols == nrows; }
   std::size_t size() const { return ncols * nrows; }
-  std::pair<std::size_t, std::size_t> shape() const { return {nrows, ncols}; }
+  std::tuple<std::size_t, std::size_t> shape() const { return {nrows, ncols}; }
+  std::size_t get_nrows() const { return nrows; }
+  std::size_t get_ncols() const { return ncols; }
+
+public: // static methods
+  static T det(const Matrix<T> &);
+  static T trace(const Matrix<T> &);
 
 public: // non-const operations
   Matrix<T> &operator+=(const Matrix<T> &);
@@ -61,44 +71,45 @@ private: // fields and proxy
     Row(T *, std::size_t);
     T &operator[](std::size_t);
     const T &operator[](std::size_t) const;
+    const T *begin() const { return row_data; }
+    const T *end() const { return row_data + ncols; }
+    T *begin() { return row_data; }
+    T *end() { return row_data + ncols; }
 
   private:
     T *row_data;
     std::size_t ncols;
   };
 };
-
 } // namespace linalg
 
+// Implementation
+namespace linalg {
 // internal constructors & destructor
-template <typename T> linalg::Matrix<T>::~Matrix() { delete[] data; }
+template <typename T> Matrix<T>::~Matrix() { delete[] data; }
 
 template <typename T>
-linalg::Matrix<T>::Matrix(std::size_t nrows, std::size_t ncols)
+Matrix<T>::Matrix(std::size_t nrows, std::size_t ncols)
     : nrows(nrows), ncols(ncols), data(new T[ncols * nrows]{}) {}
 
 template <typename T>
-linalg::Matrix<T>::Matrix(const Matrix<T> &other)
-    : Matrix(other.nrows, other.ncols) {
+Matrix<T>::Matrix(const Matrix<T> &other) : Matrix(other.nrows, other.ncols) {
   std::copy(other.begin(), other.end(), data);
 }
 
 // static factory methods
 template <typename T>
-linalg::Matrix<T> linalg::Matrix<T>::zero(std::size_t nrows,
-                                          std::size_t ncols) {
+Matrix<T> Matrix<T>::zero(std::size_t nrows, std::size_t ncols) {
   static_assert(std::is_arithmetic<T>::value,
                 "Zero() can be used only with arithmetical types");
   return Matrix<T>{nrows, ncols};
 }
 
-template <typename T>
-linalg::Matrix<T> linalg::Matrix<T>::zero_like(const Matrix<T> &source) {
+template <typename T> Matrix<T> Matrix<T>::zeros_like(const Matrix<T> &source) {
   return Matrix<T>::zero(source.nrows, source.ncols);
 }
 
-template <typename T>
-linalg::Matrix<T> linalg::Matrix<T>::identity(std::size_t n) {
+template <typename T> Matrix<T> Matrix<T>::identity(std::size_t n) {
   static_assert(std::is_arithmetic<T>::value,
                 "Identity() can be used only with arithmetical types");
 
@@ -110,17 +121,29 @@ linalg::Matrix<T> linalg::Matrix<T>::identity(std::size_t n) {
 }
 
 template <typename T>
-linalg::Matrix<T> linalg::Matrix<T>::identity_like(const Matrix<T> &prototype) {
+Matrix<T> Matrix<T>::identity_like(const Matrix<T> &prototype) {
   if (!prototype.is_squared())
     throw std::invalid_argument("prototype matrix must be squared!\n");
 
   return Matrix<T>::identity(prototype.nrows);
 }
 
+template <typename T>
+Matrix<T> Matrix<T>::transposed(const Matrix<T> &original) {
+  Matrix<T> transposed = Matrix<T>{original.ncols, original.nrows};
+  // TODO: implement with in-place transposition of copy
+
+  for (auto i = 0; i < original.nrows; ++i)
+    for (auto j = 0; j < original.ncols; ++j)
+      transposed[j][i] = original[i][j];
+
+  return transposed;
+}
+
 // selectors and modifiers
 
 template <typename T>
-typename linalg::Matrix<T>::Row linalg::Matrix<T>::operator[](std::size_t row) {
+typename Matrix<T>::Row Matrix<T>::operator[](std::size_t row) {
   if (row >= this->nrows)
     throw std::out_of_range(
         "Row index is out of range: " + std::to_string(row) + "\n");
@@ -129,8 +152,7 @@ typename linalg::Matrix<T>::Row linalg::Matrix<T>::operator[](std::size_t row) {
 }
 
 template <typename T>
-const typename linalg::Matrix<T>::Row
-linalg::Matrix<T>::operator[](std::size_t row) const {
+const typename Matrix<T>::Row Matrix<T>::operator[](std::size_t row) const {
   if (row >= this->nrows)
     throw std::out_of_range(
         "Row index is out of range: " + std::to_string(row) + "\n");
@@ -139,10 +161,10 @@ linalg::Matrix<T>::operator[](std::size_t row) const {
 }
 
 template <typename T>
-linalg::Matrix<T>::Row::Row(T *row_data, std::size_t ncols)
+Matrix<T>::Row::Row(T *row_data, std::size_t ncols)
     : row_data(row_data), ncols(ncols) {}
 
-template <typename T> T &linalg::Matrix<T>::Row::operator[](std::size_t col) {
+template <typename T> T &Matrix<T>::Row::operator[](std::size_t col) {
   if (col >= ncols)
     throw std::out_of_range(
         "Column index is out of range: " + std::to_string(col) + "\n");
@@ -151,10 +173,93 @@ template <typename T> T &linalg::Matrix<T>::Row::operator[](std::size_t col) {
 }
 
 template <typename T>
-const T &linalg::Matrix<T>::Row::operator[](std::size_t col) const {
+const T &Matrix<T>::Row::operator[](std::size_t col) const {
   if (col >= ncols)
     throw std::out_of_range(
         "Column index is out of range: " + std::to_string(col) + "\n");
 
   return row_data[col];
 }
+
+// internal implementation
+template <typename T>
+void Matrix<T>::resize(std::size_t new_nrows, std::size_t new_ncols) {
+  if (new_nrows * new_ncols == nrows * ncols) {
+    nrows = new_nrows;
+    ncols = new_ncols;
+    return;
+  }
+  T *new_data = new T[new_nrows * new_ncols]{};
+}
+
+// non-const operations
+template <typename T> Matrix<T> &Matrix<T>::operator+=(const Matrix<T> &other) {
+  for (auto &this_other_element : zip(*this, other)) {
+    std::get<0>(this_other_element) += std::get<0>(this_other_element);
+  }
+
+  return *this;
+}
+
+template <typename T> Matrix<T> &Matrix<T>::operator-=(const Matrix<T> &other) {
+  for (auto &this_other_element : zip(*this, other)) {
+    std::get<0>(this_other_element) -= std::get<0>(this_other_element);
+  }
+
+  return *this;
+}
+
+template <typename T> Matrix<T> &Matrix<T>::operator*=(const Matrix<T> &other) {
+  if (this->ncols != other.nrows)
+    throw std::invalid_argument("Matrix must have matching dimentions");
+
+  Matrix<T> result = Matrix(this->nrows, other.ncols);
+  Matrix<T> other_T = transposed(other);
+
+  for (auto i = 0; i < nrows; ++i)
+    for (auto j = 0; j < other.ncols; ++j)
+      result[i][j] = dot((*this)[i], other_T[j]);
+  *this = result;
+
+  return *this;
+}
+
+// const operations
+template <typename T>
+Matrix<T> Matrix<T>::operator+(const Matrix<T> &other) const {
+  Matrix<T> result = *this;
+  result += other;
+  return result;
+}
+
+template <typename T>
+Matrix<T> Matrix<T>::operator-(const Matrix<T> &other) const {
+  Matrix<T> result = *this;
+  result -= other;
+  return result;
+}
+
+template <typename T>
+Matrix<T> Matrix<T>::operator*(const Matrix<T> &other) const {
+  Matrix<T> result{nrows, other.ncols};
+  Matrix<T> other_T = transposed(other);
+
+  for (auto i = 0; i < result.nrows; ++i)
+    for (auto j = 0; j < result.ncols; ++j)
+      result[i][j] = dot((*this)[i], other_T[j]);
+
+  return result;
+}
+
+template <typename T> T Matrix<T>::det() const {}
+
+template <typename T> T Matrix<T>::trace() const {
+  if (!this->is_squared())
+    throw std::invalid_argument("Matrix must be squared to get trace of it");
+
+  T trace{};
+  for (int i = 0; i < nrows; ++i)
+    trace += (*this)[i][i];
+}
+
+} // namespace linalg
