@@ -11,6 +11,7 @@
 // Declaration
 namespace linalg {
 template <typename T> class Matrix {
+  typedef T value_type;
   struct Row; // proxy for accessors
 
 public: // raw constructors and destructor
@@ -66,6 +67,7 @@ private: // fields and proxy
   T *data = nullptr;
 
   struct Row {
+    typedef T value_type;
     ~Row() = default;
     Row() = delete;
     Row(T *, std::size_t);
