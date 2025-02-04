@@ -25,6 +25,7 @@ public: // static factory methods
   static Matrix<T> identity(std::size_t);
   static Matrix<T> identity_like(const Matrix<T> &);
   static Matrix<T> transposed(const Matrix<T> &);
+  template <typename It> static Matrix<T> diagonal(const It &);
 
 public: // selectors
   const T *begin() const { return data; }
@@ -142,6 +143,17 @@ Matrix<T> Matrix<T>::transposed(const Matrix<T> &original) {
   return transposed;
 }
 
+template <typename T>
+template <typename It>
+Matrix<T> Matrix<T>::diagonal(const It &src) {
+  std::size_t n = std::distance(src.begin(), src.end());
+  Matrix<T> result{n, n};
+  for (auto i = 0; i < n; ++i)
+    result[i][i] = src[i];
+
+  return result;
+}
+
 // selectors and modifiers
 
 template <typename T>
@@ -253,7 +265,9 @@ Matrix<T> Matrix<T>::operator*(const Matrix<T> &other) const {
   return result;
 }
 
-template <typename T> T Matrix<T>::det() const {}
+template <typename T> T Matrix<T>::det() const {
+  throw std::runtime_error("det method not yet implemented!");
+}
 
 template <typename T> T Matrix<T>::trace() const {
   if (!this->is_squared())
