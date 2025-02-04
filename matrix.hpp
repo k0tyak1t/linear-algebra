@@ -276,6 +276,7 @@ template <typename T> T Matrix<T>::trace() const {
   T trace{};
   for (int i = 0; i < nrows; ++i)
     trace += (*this)[i][i];
+  return trace;
 }
 
 } // namespace linalg
