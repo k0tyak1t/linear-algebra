@@ -57,7 +57,7 @@ public: // const operations
   Matrix<T> operator-(const Matrix<T> &) const;
   Matrix<T> operator*(const Matrix<T> &) const;
   T trace() const;
-  T det() const;
+  T det() const; // TODO: implement LU
 
 private: // implementation details
   void resize(std::size_t, std::size_t);
@@ -186,12 +186,12 @@ const T &Matrix<T>::Row::operator[](std::size_t col) const {
 // internal implementation
 template <typename T>
 void Matrix<T>::resize(std::size_t new_nrows, std::size_t new_ncols) {
-  if (new_nrows * new_ncols == nrows * ncols) {
-    nrows = new_nrows;
-    ncols = new_ncols;
-    return;
-  }
-  T *new_data = new T[new_nrows * new_ncols]{};
+  if (new_nrows * new_ncols != nrows * ncols)
+    throw std::invalid_argument(
+        "On resizing a number of elements shouldn't change!");
+
+  nrows = new_nrows;
+  ncols = new_ncols;
 }
 
 // non-const operations
